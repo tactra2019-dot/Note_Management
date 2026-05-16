@@ -14,16 +14,27 @@ const readErrorMessage = async (response) => {
 
 export const getAuthToken = () => localStorage.getItem('token');
 
-export const apiRequest = async (endpoint, method = 'GET', body = null, token = null) => {
+export const apiRequest = async (endpoint, method = 'GET', body = null, token = null, options = {}) => {
   const headers = { 'Content-Type': 'application/json' };
   const authToken = token || getAuthToken();
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : null,
-  });
+  const controller = options.timeoutMs ? new AbortController() : null;
+  const timeoutId = options.timeoutMs
+    ? globalThis.setTimeout(() => controller.abort(), options.timeoutMs)
+    : null;
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : null,
+      signal: controller?.signal,
+    });
+  } finally {
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));

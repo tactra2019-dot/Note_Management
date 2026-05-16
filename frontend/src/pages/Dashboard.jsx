@@ -40,6 +40,9 @@ const emptyNote = {
 
 const postAuthMessageKey = 'notespace:post-auth-message';
 const emailUnavailableMessage = 'Email service is temporarily unavailable. Please try again later.';
+const resendActivationTimeoutMs = 15000;
+const resendActivationTimeoutMessage = 'Email service is taking too long. Please try again later.';
+const resendActivationSuccessMessage = 'Activation email sent. Please check your inbox and spam folder.';
 
 const applyPreferences = (preferences) => {
   if (!preferences) return;
@@ -309,14 +312,16 @@ function Dashboard() {
   const resendActivation = async () => {
     setSendingActivation(true);
     try {
-      const data = await apiRequest('/api/auth/resend-activation', 'POST');
+      const data = await apiRequest('/api/auth/resend-activation', 'POST', null, null, {
+        timeoutMs: resendActivationTimeoutMs,
+      });
       if (data.success === false) {
         throw new Error(data.message || emailUnavailableMessage);
       }
-      showToast(data.message, 'success');
+      showToast(resendActivationSuccessMessage, 'success');
     } catch (error) {
-      const message = /email service|timeout/i.test(error.message)
-        ? emailUnavailableMessage
+      const message = error.name === 'AbortError'
+        ? resendActivationTimeoutMessage
         : error.message;
       showToast(message, 'error');
     } finally {
