@@ -38,6 +38,9 @@ const emptyNote = {
   is_password_protected: false,
 };
 
+const postAuthMessageKey = 'notespace:post-auth-message';
+const emailUnavailableMessage = 'Email service is temporarily unavailable. Please try again later.';
+
 const applyPreferences = (preferences) => {
   if (!preferences) return;
   document.documentElement.setAttribute('data-theme', preferences.theme || 'light');
@@ -99,6 +102,14 @@ function Dashboard() {
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => setToast(null), 3000);
   };
+
+  useEffect(() => {
+    const message = sessionStorage.getItem(postAuthMessageKey);
+    if (!message) return;
+
+    sessionStorage.removeItem(postAuthMessageKey);
+    showToast(message, 'info');
+  }, []);
 
   const sortNotes = (items) => {
     return [...items].sort((a, b) => {
@@ -299,9 +310,15 @@ function Dashboard() {
     setSendingActivation(true);
     try {
       const data = await apiRequest('/api/auth/resend-activation', 'POST');
+      if (data.success === false) {
+        throw new Error(data.message || emailUnavailableMessage);
+      }
       showToast(data.message, 'success');
     } catch (error) {
-      showToast(error.message, 'error');
+      const message = /email service|timeout/i.test(error.message)
+        ? emailUnavailableMessage
+        : error.message;
+      showToast(message, 'error');
     } finally {
       setSendingActivation(false);
     }

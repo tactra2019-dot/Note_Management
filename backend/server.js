@@ -19,6 +19,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { corsOptions, socketCorsOptions } from './config/cors.js';
 import { db, explainDatabaseError, getDatabaseConfigSummary, testDatabaseConnection } from './config/db.js';
 import { ensureDatabaseShape } from './config/migrate.js';
+import { getEmailConfigSummary } from './services/emailService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -222,6 +223,7 @@ server.listen(PORT, async ()=> {
   }
 
   console.log('Database configuration:', getDatabaseConfigSummary());
+  console.log('Email configuration:', getEmailConfigSummary());
 
   try {
     await testDatabaseConnection();

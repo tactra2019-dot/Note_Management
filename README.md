@@ -158,7 +158,7 @@ Environment variables:
 ```env
 NODE_ENV=production
 PORT=10000
-CLIENT_URL=https://your-frontend.vercel.app
+CLIENT_URL=https://note-management-khaki.vercel.app
 EXTRA_CLIENT_URLS=
 
 DB_HOST=MYSQLHOST
@@ -182,6 +182,7 @@ Notes:
 
 - `CLIENT_URL` must match the deployed Vercel frontend URL exactly.
 - Use `EXTRA_CLIENT_URLS` for comma-separated Vercel preview URLs if you want previews to call the backend.
+- Gmail SMTP supports either `EMAIL_PORT=587` with `EMAIL_SECURE=false` or `EMAIL_PORT=465` with `EMAIL_SECURE=true`.
 - Do not put real secrets in source code or example files.
 
 Backend health check after deployment:

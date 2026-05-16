@@ -4,6 +4,8 @@ import { Mail, LockKeyhole, NotebookPen, UserRound } from 'lucide-react';
 import { apiRequest } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
+const postAuthMessageKey = 'notespace:post-auth-message';
+
 function Register() {
   const [form, setForm] = useState({ email: '', displayName: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
@@ -25,6 +27,9 @@ function Register() {
     setLoading(true);
     try {
       const data = await apiRequest('/api/auth/register', 'POST', form);
+      if (data.emailSent === false && data.message) {
+        sessionStorage.setItem(postAuthMessageKey, data.message);
+      }
       login(data.token, data.user);
       navigate('/');
     } catch (err) {

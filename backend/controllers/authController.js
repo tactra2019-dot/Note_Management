@@ -61,10 +61,26 @@ export const registerUser = async (req, res) => {
     is_active: false,
   };
 
-  await sendActivationEmail(user.email, user.display_name, activationToken);
-
   const token = signToken(user);
-  res.status(201).json({ token, user: mapUser(user) });
+  const emailResult = await sendActivationEmail(user.email, user.display_name, activationToken);
+
+  if (!emailResult.sent) {
+    return res.status(201).json({
+      success: true,
+      message: 'Account created, but activation email could not be sent. Please resend later.',
+      emailSent: false,
+      token,
+      user: mapUser(user),
+    });
+  }
+
+  res.status(201).json({
+    success: true,
+    message: 'Account created. Please check your inbox for the activation link.',
+    emailSent: true,
+    token,
+    user: mapUser(user),
+  });
 };
 
 export const loginUser = async (req, res) => {
@@ -152,26 +168,54 @@ export const requestPasswordReset = async (req, res) => {
 };
 
 export const resendActivationEmail = async (req, res) => {
-  const [rows] = await db.query(
-    'SELECT id, email, display_name, avatar_url, is_active FROM users WHERE id = ?',
-    [req.user.id],
-  );
-  const user = rows[0];
-  if (!user) {
-    return res.status(404).json({ message: 'User not found.' });
-  }
-  if (user.is_active) {
-    return res.json({ message: 'Your account is already activated.' });
-  }
+  let emailResult = null;
+  let emailAttempted = false;
 
-  const activationToken = crypto.randomBytes(32).toString('hex');
-  await db.query(
-    'UPDATE users SET activation_token = ?, activation_token_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR), updated_at = NOW() WHERE id = ?',
-    [activationToken, user.id],
-  );
+  try {
+    const [rows] = await db.query(
+      'SELECT id, email, display_name, avatar_url, is_active FROM users WHERE id = ?',
+      [req.user.id],
+    );
+    const user = rows[0];
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    if (user.is_active) {
+      return res.json({ success: true, message: 'Your account is already activated.' });
+    }
 
-  await sendActivationEmail(user.email, user.display_name, activationToken);
-  res.json({ message: 'Activation email sent. Please check your inbox.' });
+    const activationToken = crypto.randomBytes(32).toString('hex');
+    await db.query(
+      'UPDATE users SET activation_token = ?, activation_token_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR), updated_at = NOW() WHERE id = ?',
+      [activationToken, user.id],
+    );
+
+    emailAttempted = true;
+    emailResult = await sendActivationEmail(user.email, user.display_name, activationToken);
+    if (!emailResult.sent) {
+      return res.status(503).json({
+        success: false,
+        message: 'Email service timeout. Please try again later.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Activation email sent. Please check your inbox.',
+    });
+  } catch (error) {
+    if (!emailAttempted) {
+      throw error;
+    }
+
+    console.warn('Resend activation email failed:', error.message);
+    return res.status(503).json({
+      success: false,
+      message: 'Email service timeout. Please try again later.',
+    });
+  } finally {
+    emailResult = null;
+  }
 };
 
 export const resetPassword = async (req, res) => {
